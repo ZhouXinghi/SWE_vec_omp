@@ -82,117 +82,117 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
   RealType maxWaveSpeedLocal_vec[nx_ + 2];
   RealType maxWaveSpeedLocal = RealType(0.0);
-  #pragma omp parallel for schedule(guided)
-  #endif
-  for (int i = 1; i < nx_ + 2; i++) {
-    #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
-    maxWaveSpeedLocal_vec[i] = RealType(0.0);
-    auto tid = omp_get_thread_num();
+  RealType maxWaveSpeedLocal_vec2[nx_ + 1];
+  #pragma omp parallel 
+  {
+    #pragma omp for schedule(guided) 
     #endif
-    for (int j = 1; j < ny_ + 1; ++j) {
-      RealType maxEdgeSpeed = RealType(0.0);
+    for (int i = 1; i < nx_ + 2; i++) {
       #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
-      wavePropagationSolver_[tid].computeNetUpdates(
-        h_[i - 1][j],
-        h_[i][j],
-        hu_[i - 1][j],
-        hu_[i][j],
-        b_[i - 1][j],
-        b_[i][j],
-        hNetUpdatesLeft_[i - 1][j - 1],
-        hNetUpdatesRight_[i - 1][j - 1],
-        huNetUpdatesLeft_[i - 1][j - 1],
-        huNetUpdatesRight_[i - 1][j - 1],
-        maxEdgeSpeed
-      );
-      #else
-      wavePropagationSolver_.computeNetUpdates(
-        h_[i - 1][j],
-        h_[i][j],
-        hu_[i - 1][j],
-        hu_[i][j],
-        b_[i - 1][j],
-        b_[i][j],
-        hNetUpdatesLeft_[i - 1][j - 1],
-        hNetUpdatesRight_[i - 1][j - 1],
-        huNetUpdatesLeft_[i - 1][j - 1],
-        huNetUpdatesRight_[i - 1][j - 1],
-        maxEdgeSpeed
-      );
+      maxWaveSpeedLocal_vec[i] = RealType(0.0);
+      auto tid = omp_get_thread_num();
       #endif
-      // Update the thread-local maximum wave speed
+      for (int j = 1; j < ny_ + 1; ++j) {
+        RealType maxEdgeSpeed = RealType(0.0);
+        #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
+        wavePropagationSolver_[tid].computeNetUpdates(
+          h_[i - 1][j],
+          h_[i][j],
+          hu_[i - 1][j],
+          hu_[i][j],
+          b_[i - 1][j],
+          b_[i][j],
+          hNetUpdatesLeft_[i - 1][j - 1],
+          hNetUpdatesRight_[i - 1][j - 1],
+          huNetUpdatesLeft_[i - 1][j - 1],
+          huNetUpdatesRight_[i - 1][j - 1],
+          maxEdgeSpeed
+        );
+        #else
+        wavePropagationSolver_.computeNetUpdates(
+          h_[i - 1][j],
+          h_[i][j],
+          hu_[i - 1][j],
+          hu_[i][j],
+          b_[i - 1][j],
+          b_[i][j],
+          hNetUpdatesLeft_[i - 1][j - 1],
+          hNetUpdatesRight_[i - 1][j - 1],
+          huNetUpdatesLeft_[i - 1][j - 1],
+          huNetUpdatesRight_[i - 1][j - 1],
+          maxEdgeSpeed
+        );
+        #endif
+        // Update the thread-local maximum wave speed
+        #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
+        maxWaveSpeedLocal_vec[i] = std::max(maxWaveSpeedLocal_vec[i], maxEdgeSpeed);
+        #else
+        maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+        #endif
+      }
+    }
+
+    // Compute the net-updates for the horizontal edges
+    #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
+    #pragma omp for schedule(guided) 
+    #endif
+    for (int i = 1; i < nx_ + 1; i++) {
       #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
-      maxWaveSpeedLocal_vec[i] = std::max(maxWaveSpeedLocal_vec[i], maxEdgeSpeed);
+      maxWaveSpeedLocal_vec2[i] = RealType(0.0);
+      auto tid = omp_get_thread_num();
+      for (int j = 1; j < ny_ + 2; j++) {
+        RealType maxEdgeSpeed = RealType(0.0);
+        wavePropagationSolver_[tid].computeNetUpdates(
+          h_[i][j - 1],
+          h_[i][j],
+          hv_[i][j - 1],
+          hv_[i][j],
+          b_[i][j - 1],
+          b_[i][j],
+          hNetUpdatesBelow_[i - 1][j - 1],
+          hNetUpdatesAbove_[i - 1][j - 1],
+          hvNetUpdatesBelow_[i - 1][j - 1],
+          hvNetUpdatesAbove_[i - 1][j - 1],
+          maxEdgeSpeed
+        );
+
+        // Update the thread-local maximum wave speed
+        maxWaveSpeedLocal_vec2[i] = std::max(maxWaveSpeedLocal_vec2[i], maxEdgeSpeed);
+      }
       #else
-      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+      for (int j = 1; j < ny_ + 2; j++) {
+        RealType maxEdgeSpeed = RealType(0.0);
+        wavePropagationSolver_.computeNetUpdates(
+          h_[i][j - 1],
+          h_[i][j],
+          hv_[i][j - 1],
+          hv_[i][j],
+          b_[i][j - 1],
+          b_[i][j],
+          hNetUpdatesBelow_[i - 1][j - 1],
+          hNetUpdatesAbove_[i - 1][j - 1],
+          hvNetUpdatesBelow_[i - 1][j - 1],
+          hvNetUpdatesAbove_[i - 1][j - 1],
+          maxEdgeSpeed
+        );
+
+        // Update the thread-local maximum wave speed
+        maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+      }
       #endif
     }
+    #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
   }
-  #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
   #pragma omp parallel for reduction(max:maxWaveSpeedLocal)
   for (int i = 1; i < nx_ + 2; i++) {
     maxWaveSpeedLocal = std::max(maxWaveSpeedLocal_vec[i], RealType(0.0));
   }
-  #endif
-
-  
-  // Compute the net-updates for the horizontal edges
-  #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
-  RealType maxWaveSpeedLocal_vec2[nx_ + 1];
-  #pragma  omp parallel for schedule(guided)
-  #endif
-  for (int i = 1; i < nx_ + 1; i++) {
-    #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
-    maxWaveSpeedLocal_vec2[i] = RealType(0.0);
-    auto tid = omp_get_thread_num();
-    for (int j = 1; j < ny_ + 2; j++) {
-      RealType maxEdgeSpeed = RealType(0.0);
-      wavePropagationSolver_[tid].computeNetUpdates(
-        h_[i][j - 1],
-        h_[i][j],
-        hv_[i][j - 1],
-        hv_[i][j],
-        b_[i][j - 1],
-        b_[i][j],
-        hNetUpdatesBelow_[i - 1][j - 1],
-        hNetUpdatesAbove_[i - 1][j - 1],
-        hvNetUpdatesBelow_[i - 1][j - 1],
-        hvNetUpdatesAbove_[i - 1][j - 1],
-        maxEdgeSpeed
-      );
-
-      // Update the thread-local maximum wave speed
-      maxWaveSpeedLocal_vec2[i] = std::max(maxWaveSpeedLocal_vec2[i], maxEdgeSpeed);
-    }
-    #else
-    for (int j = 1; j < ny_ + 2; j++) {
-      RealType maxEdgeSpeed = RealType(0.0);
-      wavePropagationSolver_.computeNetUpdates(
-        h_[i][j - 1],
-        h_[i][j],
-        hv_[i][j - 1],
-        hv_[i][j],
-        b_[i][j - 1],
-        b_[i][j],
-        hNetUpdatesBelow_[i - 1][j - 1],
-        hNetUpdatesAbove_[i - 1][j - 1],
-        hvNetUpdatesBelow_[i - 1][j - 1],
-        hvNetUpdatesAbove_[i - 1][j - 1],
-        maxEdgeSpeed
-      );
-
-      // Update the thread-local maximum wave speed
-      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
-    }
-    #endif
-  }
-  #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
   #pragma omp parallel for schedule(guided) reduction(max:maxWaveSpeed)
   for (int i = 1; i < nx_ + 1; i++) {
     maxWaveSpeed = std::max(maxWaveSpeedLocal, maxWaveSpeedLocal_vec2[i]);
   }
   #endif
-
+  
   if (maxWaveSpeed > 0.00001) {
     // Compute the time step width
     maxTimeStep_ = std::min(dx_ / maxWaveSpeed, dy_ / maxWaveSpeed);
