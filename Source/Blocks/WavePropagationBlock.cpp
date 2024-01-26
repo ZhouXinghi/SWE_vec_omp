@@ -29,7 +29,7 @@
  */
 
 #include "WavePropagationBlock.hpp"
-
+#include "../Tools/Logger.hpp"
 #include <iostream>
 
 Blocks::WavePropagationBlock::WavePropagationBlock(int nx, int ny, RealType dx, RealType dy):
@@ -41,7 +41,13 @@ Blocks::WavePropagationBlock::WavePropagationBlock(int nx, int ny, RealType dx, 
   hNetUpdatesBelow_(nx, ny + 1),
   hNetUpdatesAbove_(nx, ny + 1),
   hvNetUpdatesBelow_(nx, ny + 1),
-  hvNetUpdatesAbove_(nx, ny + 1) {}
+  hvNetUpdatesAbove_(nx, ny + 1) {
+    for (size_t i = 0; i < omp_get_max_threads(); i++)
+    {
+      wavePropagationSolver_.push_back(Solvers::FWaveSolver<RealType>());
+    }
+  }
+  
 
 Blocks::WavePropagationBlock::WavePropagationBlock(
   int nx, int ny, RealType dx, RealType dy,
@@ -57,18 +63,29 @@ Blocks::WavePropagationBlock::WavePropagationBlock(
   hNetUpdatesBelow_(nx, ny + 1),
   hNetUpdatesAbove_(nx, ny + 1),
   hvNetUpdatesBelow_(nx, ny + 1),
-  hvNetUpdatesAbove_(nx, ny + 1) {}
+  hvNetUpdatesAbove_(nx, ny + 1) {
+    for (size_t i = 0; i < omp_get_max_threads(); i++)
+    {
+      wavePropagationSolver_.push_back(Solvers::FWaveSolver<RealType>());
+    }
+  }
 
 void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   // Maximum (linearized) wave speed within one iteration
   RealType maxWaveSpeed = RealType(0.0);
 
   // Compute the net-updates for the vertical edges
+  RealType maxWaveSpeedLocal_vec[nx_ + 2];// = {RealType(0.0)};
+  RealType maxWaveSpeedLocal = RealType(0.0);
+  #pragma omp parallel for collapse(1)
   for (int i = 1; i < nx_ + 2; i++) {
+    maxWaveSpeedLocal_vec[i] = RealType(0.0);
     for (int j = 1; j < ny_ + 1; ++j) {
       RealType maxEdgeSpeed = RealType(0.0);
-
-      wavePropagationSolver_.computeNetUpdates(
+      auto tid = omp_get_thread_num();
+      auto t_num = omp_get_num_threads();
+      auto vec_size = wavePropagationSolver_.size();
+      wavePropagationSolver_[tid].computeNetUpdates(
         h_[i - 1][j],
         h_[i][j],
         hu_[i - 1][j],
@@ -83,16 +100,27 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       );
 
       // Update the thread-local maximum wave speed
-      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+      maxWaveSpeedLocal_vec[i] = std::max(maxWaveSpeedLocal_vec[i], maxEdgeSpeed);
+      // maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
   }
 
+  #pragma omp parallel for reduction(max:maxWaveSpeedLocal)
+  for (int i = 1; i < nx_ + 2; i++) {
+    maxWaveSpeedLocal = std::max(maxWaveSpeedLocal_vec[i], RealType(0.0));
+  }
+
+
+  RealType maxWaveSpeedLocal_vec2[nx_ + 1];
   // Compute the net-updates for the horizontal edges
+  #pragma  omp parallel for
   for (int i = 1; i < nx_ + 1; i++) {
+    // std::cout << omp_get_num_threads() << std::endl;
+    maxWaveSpeedLocal_vec2[i] = RealType(0.0);
     for (int j = 1; j < ny_ + 2; j++) {
       RealType maxEdgeSpeed = RealType(0.0);
 
-      wavePropagationSolver_.computeNetUpdates(
+      wavePropagationSolver_[omp_get_thread_num()].computeNetUpdates(
         h_[i][j - 1],
         h_[i][j],
         hv_[i][j - 1],
@@ -107,9 +135,15 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
       );
 
       // Update the thread-local maximum wave speed
-      maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
+      maxWaveSpeedLocal_vec2[i] = std::max(maxWaveSpeedLocal_vec2[i], maxEdgeSpeed);
+      // maxWaveSpeed = std::max(maxWaveSpeed, maxEdgeSpeed);
     }
   }
+  #pragma omp parallel for reduction(max:maxWaveSpeed)
+  for (int i = 1; i < nx_ + 1; i++) {
+    maxWaveSpeed = std::max(maxWaveSpeedLocal, maxWaveSpeedLocal_vec2[i]);
+  }
+
 
   if (maxWaveSpeed > 0.00001) {
     // Compute the time step width
@@ -125,6 +159,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
 
 void Blocks::WavePropagationBlock::updateUnknowns(RealType dt) {
   // Update cell averages with the net-updates
+  #pragma  omp parallel for
   for (int i = 1; i < nx_ + 1; i++) {
     for (int j = 1; j < ny_ + 1; j++) {
       h_[i][j] -= dt / dx_ * (hNetUpdatesRight_[i - 1][j - 1] + hNetUpdatesLeft_[i][j - 1])
