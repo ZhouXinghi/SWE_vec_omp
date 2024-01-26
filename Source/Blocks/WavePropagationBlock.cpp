@@ -82,7 +82,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
   RealType maxWaveSpeedLocal_vec[nx_ + 2];
   RealType maxWaveSpeedLocal = RealType(0.0);
-  #pragma omp parallel for 
+  #pragma omp parallel for schedule(guided)
   #endif
   for (int i = 1; i < nx_ + 2; i++) {
     #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
@@ -139,15 +139,15 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
   // Compute the net-updates for the horizontal edges
   #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
   RealType maxWaveSpeedLocal_vec2[nx_ + 1];
-  #pragma  omp parallel for
+  #pragma  omp parallel for schedule(guided)
   #endif
   for (int i = 1; i < nx_ + 1; i++) {
     #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
     maxWaveSpeedLocal_vec2[i] = RealType(0.0);
-    
+    auto tid = omp_get_thread_num();
     for (int j = 1; j < ny_ + 2; j++) {
       RealType maxEdgeSpeed = RealType(0.0);
-      wavePropagationSolver_[omp_get_thread_num()].computeNetUpdates(
+      wavePropagationSolver_[tid].computeNetUpdates(
         h_[i][j - 1],
         h_[i][j],
         hv_[i][j - 1],
@@ -187,7 +187,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
     #endif
   }
   #ifdef WITH_SOLVER_FWAVE && ENABLE_OPENMP
-  #pragma omp parallel for reduction(max:maxWaveSpeed)
+  #pragma omp parallel for schedule(guided) reduction(max:maxWaveSpeed)
   for (int i = 1; i < nx_ + 1; i++) {
     maxWaveSpeed = std::max(maxWaveSpeedLocal, maxWaveSpeedLocal_vec2[i]);
   }
@@ -208,7 +208,7 @@ void Blocks::WavePropagationBlock::computeNumericalFluxes() {
 void Blocks::WavePropagationBlock::updateUnknowns(RealType dt) {
   // Update cell averages with the net-updates
   #ifdef ENABLE_OPENMP
-  #pragma  omp parallel for
+  #pragma  omp parallel for schedule(guided)
   #endif
   for (int i = 1; i < nx_ + 1; i++) {
     for (int j = 1; j < ny_ + 1; j++) {
