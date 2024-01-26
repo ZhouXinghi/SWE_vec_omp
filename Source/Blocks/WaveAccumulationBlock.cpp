@@ -64,7 +64,7 @@ void Blocks::WaveAccumulationBlock::computeNumericalFluxes() {
 #if defined(ENABLE_VECTORIZATION) && defined(ENABLE_OPENMP) // Vectorize the inner loop
 #pragma omp simd reduction(max : maxWaveSpeedLocal)
 #elif defined(ENABLE_OPENMP)
-#pragma omp reduction(max : maxWaveSpeedLocal)
+#pragma omp parallel reduction(max : maxWaveSpeedLocal)
 #elif defined(ENABLE_VECTORIZATION)
 #pragma omp simd reduction(max : maxWaveSpeed)
 #endif
@@ -111,7 +111,7 @@ void Blocks::WaveAccumulationBlock::computeNumericalFluxes() {
 #if defined(ENABLE_VECTORIZATION) && defined(ENABLE_OPENMP)
 #pragma omp simd reduction(max : maxWaveSpeedLocal)
 #elif defined(ENABLE_OPENMP)
-#pragma omp reduction(max : maxWaveSpeedLocal)
+#pragma omp parallel reduction(max : maxWaveSpeedLocal)
 #elif defined(ENABLE_VECTORIZATION)
 #pragma omp simd reduction(max : maxWaveSpeed)
 #endif

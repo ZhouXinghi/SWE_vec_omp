@@ -31,7 +31,8 @@
 #pragma once
 
 #include "Block.hpp"
-
+#include <omp.h>
+#include <vector>
 #ifdef WITH_SOLVER_HYBRID
 #include "HybridSolver.hpp"
 #elif defined(WITH_SOLVER_FWAVE)
@@ -59,7 +60,8 @@ namespace Blocks {
     Solvers::HybridSolver<RealType> wavePropagationSolver_;
 #elif defined(WITH_SOLVER_FWAVE)
     //! F-wave Riemann solver
-    Solvers::FWaveSolver<RealType> wavePropagationSolver_;
+    // Solvers::FWaveSolver<RealType> wavePropagationSolver_;
+    std::vector<Solvers::FWaveSolver<RealType>> wavePropagationSolver_;
 #elif defined(WITH_SOLVER_AUGRIE)
     //! Approximate Augmented Riemann solver
     Solvers::AugRieSolver<RealType> wavePropagationSolver_;
