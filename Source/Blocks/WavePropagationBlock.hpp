@@ -58,10 +58,13 @@ namespace Blocks {
 #ifdef WITH_SOLVER_HYBRID
     //! Hybrid solver (f-wave + augmented)
     Solvers::HybridSolver<RealType> wavePropagationSolver_;
-#elif defined(WITH_SOLVER_FWAVE)
+#elif defined(WITH_SOLVER_FWAVE) && defined(ENABLE_OPENMP)
     //! F-wave Riemann solver
-    // Solvers::FWaveSolver<RealType> wavePropagationSolver_;
+
     std::vector<Solvers::FWaveSolver<RealType>> wavePropagationSolver_;
+#elif defined(WITH_SOLVER_FWAVE) && !defined(ENABLE_OPENMP)
+    Solvers::FWaveSolver<RealType> wavePropagationSolver_;
+    
 #elif defined(WITH_SOLVER_AUGRIE)
     //! Approximate Augmented Riemann solver
     Solvers::AugRieSolver<RealType> wavePropagationSolver_;
