@@ -2,7 +2,6 @@ include(FetchContent)
 
 FetchContent_Declare(
     SWE-Solvers
-    GIT_REPOSITORY https://github.com/CristinaZN/SWE-Solvers.git
-    GIT_TAG        master
+    SOURCE_DIR /dss/dsshome1/lxc09/di34muz/SWE_Zhou/SWE-Solvers
 )
 FetchContent_MakeAvailable(SWE-Solvers)

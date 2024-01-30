@@ -31,12 +31,12 @@
 #pragma once
 
 #include "Block.hpp"
-#include <omp.h>
 #include <vector>
 #ifdef WITH_SOLVER_HYBRID
 #include "HybridSolver.hpp"
 #elif defined(WITH_SOLVER_FWAVE)
 #include "FWaveSolver.hpp"
+#include "FWaveSolver_SIMD.hpp"
 #elif defined(WITH_SOLVER_AUGRIE)
 #include "AugRieSolver.hpp"
 #else
@@ -58,12 +58,11 @@ namespace Blocks {
 #ifdef WITH_SOLVER_HYBRID
     //! Hybrid solver (f-wave + augmented)
     Solvers::HybridSolver<RealType> wavePropagationSolver_;
-#elif defined(WITH_SOLVER_FWAVE) && defined(ENABLE_OPENMP)
+#elif defined(WITH_SOLVER_FWAVE)
     //! F-wave Riemann solver
 
+    std::vector<Solvers::FWaveSolver_SIMD> wavePropagationSolversSIMD_;
     std::vector<Solvers::FWaveSolver<RealType>> wavePropagationSolver_;
-#elif defined(WITH_SOLVER_FWAVE) && !defined(ENABLE_OPENMP)
-    Solvers::FWaveSolver<RealType> wavePropagationSolver_;
     
 #elif defined(WITH_SOLVER_AUGRIE)
     //! Approximate Augmented Riemann solver
@@ -157,6 +156,7 @@ namespace Blocks {
      * @param dt time step width used in the update.
      */
     void updateUnknowns(RealType dt) override;
+    // void computeNumericalFluxesOneColumn(int tid, int i, int ub, RealType& maxWaveSpeed);
   };
 
 } // namespace Blocks
